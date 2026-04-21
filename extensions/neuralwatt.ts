@@ -20,18 +20,21 @@ const MAX_TOKENS_OVERRIDE: Record<string, number> = {
 const DEFAULT_MAX_TOKENS = 32768;
 
 // ─── Extension Entry Point ──────────────────────────────────────────
-export default function (pi: ExtensionAPI) {
+export default async function (pi: ExtensionAPI) {
   const apiKey = process.env.NEURALWATT_API_KEY;
   if (!apiKey) {
     console.error("[neuralwatt] NEURALWATT_API_KEY not set, skipping provider registration");
     return;
   }
 
-  // Register models (async — available by the time you open /model)
-  fetchAndRegister(pi, apiKey).catch((err) => {
+  // Await so pi waits for models to be registered before startup continues.
+  // This prevents the "No models available" warning.
+  try {
+    await fetchAndRegister(pi, apiKey);
+  } catch (err: any) {
     console.error("[neuralwatt] Model fetch failed, using fallback:", err.message);
-    registerFallback(pi);
-  });
+    await registerFallback(pi);
+  }
 
   // ─── Status Bar ─────────────────────────────────────────────────
 
@@ -195,7 +198,7 @@ async function fetchAndRegister(pi: ExtensionAPI, apiKey: string) {
     models,
   });
 
-  console.error(`[neuralwatt] Registered ${models.length} models: ${models.map((m) => m.id).join(", ")}`);
+  console.error(`[neuralwatt] Registered ${models.length} model${models.length === 1 ? "" : "s"}`);
 }
 
 function registerFallback(pi: ExtensionAPI) {

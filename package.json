@@ -2,16 +2,20 @@
   "name": "pi-neuralwatt",
   "version": "1.0.0",
   "description": "Neuralwatt provider for pi — auto-discovers models, energy usage tracking, and account quota in your status bar",
-  "keywords": ["pi-package"],
+  "keywords": [
+    "pi-package"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/tedewaard/pi-neuralwatt"
+    "url": "git+https://github.com/tedewaard/pi-neuralwatt.git"
   },
   "peerDependencies": {
     "@mariozechner/pi-coding-agent": "*"
   },
   "pi": {
-    "extensions": ["./extensions/neuralwatt.ts"]
+    "extensions": [
+      "./extensions/neuralwatt.ts"
+    ]
   }
 }

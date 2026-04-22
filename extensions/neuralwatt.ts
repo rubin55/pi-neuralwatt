@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext, ProviderModelConfig } from "@mariozechner/pi-coding-agent";
 
 // ─── Configuration ──────────────────────────────────────────────────
 const BASE_URL = "https://api.neuralwatt.com/v1";
@@ -20,29 +20,35 @@ const MAX_TOKENS_OVERRIDE: Record<string, number> = {
 const DEFAULT_MAX_TOKENS = 32768;
 
 // ─── Extension Entry Point ──────────────────────────────────────────
-export default function (pi: ExtensionAPI) {
-  const apiKey = process.env.NEURALWATT_API_KEY;
-  if (!apiKey) {
-    console.error("[neuralwatt] NEURALWATT_API_KEY not set, skipping provider registration");
-    return;
-  }
 
-  // Register models (async — available by the time you open /model)
-  fetchAndRegister(pi, apiKey).catch((err) => {
-    console.error("[neuralwatt] Model fetch failed, using fallback:", err.message);
-    registerFallback(pi);
+export default function (pi: ExtensionAPI) {
+  // Register fallback models immediately
+  registerFallback(pi);
+
+  pi.on("session_start", async (event, ctx) => {
+    // Skip live registration except on startup and reload.
+    if (event.reason !== 'startup' && event.reason !== 'reload') {
+      return;
+    }
+
+    try {
+      await fetchAndRegister(pi, ctx);
+    } catch (err) {
+      const error = err as Error;
+      ctx.ui.notify(`[neuralwatt] Model fetch failed, using fallback: ${error.message}`, "error");
+    }
+    await refreshStatus(ctx);
   });
 
   // ─── Status Bar ─────────────────────────────────────────────────
 
-  // Show quota on session start
   pi.on("session_start", async (_event, ctx) => {
-    await refreshStatus(apiKey, ctx);
+    await refreshStatus(ctx);
   });
 
   // Refresh after each LLM turn completes (a request was just billed)
   pi.on("turn_end", async (_event, ctx) => {
-    await refreshStatus(apiKey, ctx);
+    await refreshStatus(ctx);
   });
 
   // ─── Slash Commands ─────────────────────────────────────────────
@@ -52,8 +58,10 @@ export default function (pi: ExtensionAPI) {
     description: "Show Neuralwatt energy consumption stats",
     handler: async (_args, ctx) => {
       try {
+        const key = await ctx.modelRegistry.getApiKeyForProvider("neuralwatt");
+        if (!key) throw new Error("No API key configured for neuralwatt");
         const res = await fetch(`${BASE_URL}/usage/energy`, {
-          headers: { Authorization: `Bearer ${apiKey}` },
+          headers: { Authorization: `Bearer ${key}` },
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data: EnergyResponse = await res.json();
@@ -89,8 +97,10 @@ export default function (pi: ExtensionAPI) {
     description: "Show Neuralwatt account balance and quota",
     handler: async (_args, ctx) => {
       try {
+        const key = await ctx.modelRegistry.getApiKeyForProvider("neuralwatt");
+        if (!key) throw new Error("No API key configured for neuralwatt");
         const res = await fetch(`${BASE_URL}/quota`, {
-          headers: { Authorization: `Bearer ${apiKey}` },
+          headers: { Authorization: `Bearer ${key}` },
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data: QuotaResponse = await res.json();
@@ -140,8 +150,13 @@ export default function (pi: ExtensionAPI) {
 
 // ─── Status Bar Helper ──────────────────────────────────────────────
 
-async function refreshStatus(apiKey: string, ctx: { ui: { setStatus(key: string, text: string | undefined): void } }) {
+async function refreshStatus(ctx: ExtensionContext) {
   try {
+    const apiKey = await ctx.modelRegistry.getApiKeyForProvider("neuralwatt");
+    if (!apiKey) {
+      ctx.ui.setStatus(STATUS_KEY, `⚡ NW: no API key`);
+      return;
+    }
     const res = await fetch(`${BASE_URL}/quota`, {
       headers: { Authorization: `Bearer ${apiKey}` },
     });
@@ -168,17 +183,15 @@ async function refreshStatus(apiKey: string, ctx: { ui: { setStatus(key: string,
 
 // ─── Model Registration ─────────────────────────────────────────────
 
-async function fetchAndRegister(pi: ExtensionAPI, apiKey: string) {
-  const res = await fetch(`${BASE_URL}/models`, {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  });
+async function fetchAndRegister(pi: ExtensionAPI, ctx: ExtensionContext) {
+  const res = await fetch(`${BASE_URL}/models`);
   if (!res.ok) throw new Error(`/v1/models returned ${res.status}`);
 
   const body = await res.json();
   const entries: ModelEntry[] = body.data ?? [];
   if (entries.length === 0) throw new Error("/v1/models returned empty list");
 
-  const models = entries.map((m) => ({
+  const models: ProviderModelConfig[] = entries.map((m) => ({
     id: m.id,
     name: formatName(m.id, m.owned_by),
     reasoning: REASONING_MODELS.has(m.id),
@@ -195,7 +208,7 @@ async function fetchAndRegister(pi: ExtensionAPI, apiKey: string) {
     models,
   });
 
-  console.error(`[neuralwatt] Registered ${models.length} models: ${models.map((m) => m.id).join(", ")}`);
+  ctx.ui.notify(`[neuralwatt] Registered ${models.length} models: ${models.map((m) => m.id).join(", ")}`);
 }
 
 function registerFallback(pi: ExtensionAPI) {

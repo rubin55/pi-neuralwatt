@@ -12,7 +12,13 @@ pi install git:github.com/tedewaard/pi-neuralwatt
 pi install https://github.com/tedewaard/pi-neuralwatt
 ```
 
-## Environment Variable
+## Configuration
+
+### API Key Setup
+
+You can set your Neuralwatt API key in one of two ways:
+
+**Option 1: Environment Variable (Recommended)**
 
 Set the following variable in your shell or shell configuration before launching PI:
 
@@ -20,11 +26,17 @@ Set the following variable in your shell or shell configuration before launching
 export NEURALWATT_API_KEY=<your_neuralwatt_api_key>
 ```
 
-If the key is missing, the extension will log a warning and fall back to a preset list of models.
+**Option 2: Interactive Setup**
+
+If you don't set the environment variable, PI will guide you through configuring the API key interactively when you need to use Neuralwatt features.
+
+**No API Key?**
+
+If no API key is configured, the extension will log a non-critical warning and fall back to a preset list of models, but interactive features like `/energy` and `/quota` will show an error when accessed without a key.
 
 ## Feature Highlights
 
-* **Model Registration** – On startup, the extension queries `https://api.neuralwatt.com/v1/models` and registers all returned models as a provider named `neuralwatt`. If the call fails, a small set of hand‑picked fallback models (e.g. Devstral, GLM‑5.1, Qwen‑3.5) is registered.
+* **Model Registration** – On startup/reload, the extension queries `https://api.neuralwatt.com/v1/models` unauthenticated and registers all returned models as a provider named `neuralwatt`. A preset fallback model list is always available at load time. If the live fetch fails, it gracefully continues with the fallbacks.
 * **Status‑bar widget** – Displays current quota usage, remaining balance, monthly usage and cost. Updated on session start and after each LLM turn.
 * **Slash Commands**
   * `/energy` – Shows a detailed energy‑consumption report for the current period, including requests, energy in kWh/µWh, and estimated cost.

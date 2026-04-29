@@ -40,8 +40,6 @@ export default function (pi: ExtensionAPI) {
     await refreshStatus(ctx);
   });
 
-  // ─── Status Bar ─────────────────────────────────────────────────
-
   pi.on("session_start", async (_event, ctx) => {
     await refreshStatus(ctx);
   });

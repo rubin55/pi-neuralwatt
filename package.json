@@ -1,6 +1,6 @@
 {
   "name": "pi-neuralwatt",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Neuralwatt provider for pi — auto-discovers models, energy usage tracking, and account quota in your status bar",
   "keywords": [
     "pi-package"

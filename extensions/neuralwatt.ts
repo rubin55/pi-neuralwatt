@@ -5,6 +5,10 @@ const BASE_URL = "https://api.neuralwatt.com/v1";
 const ENERGY_RATE_PER_KWH = 5.0; // USD
 const STATUS_KEY = "neuralwatt";
 
+// Rate limiting for status refreshes
+let lastStatusUpdate = 0;
+const STATUS_UPDATE_MIN_INTERVAL = 15000; // 15 seconds
+
 // Models where pi can safely send reasoning-specific API params
 // (reasoning_effort, developer role, max_completion_tokens).
 // Most vLLM-hosted models reject these — only add IDs you've verified.
@@ -46,7 +50,11 @@ export default function (pi: ExtensionAPI) {
 
   // Refresh after each LLM turn completes (a request was just billed)
   pi.on("turn_end", async (_event, ctx) => {
-    await refreshStatus(ctx);
+    try {
+      await refreshStatus(ctx);
+    } catch {
+      // Silent fail - don't spam with status errors per turn
+    }
   });
 
   // ─── Slash Commands ─────────────────────────────────────────────
@@ -149,6 +157,11 @@ export default function (pi: ExtensionAPI) {
 // ─── Status Bar Helper ──────────────────────────────────────────────
 
 async function refreshStatus(ctx: ExtensionContext) {
+  const now = Date.now();
+  if (now - lastStatusUpdate < STATUS_UPDATE_MIN_INTERVAL) {
+    return;
+  }
+  
   try {
     const apiKey = await ctx.modelRegistry.getApiKeyForProvider("neuralwatt");
     if (!apiKey) {
@@ -174,7 +187,9 @@ async function refreshStatus(ctx: ExtensionContext) {
       STATUS_KEY,
       `⚡ NW: $${bal.toFixed(2)}/$${total.toFixed(2)} | ${reqs} reqs | ${energy} | $${cost.toFixed(4)} spent`
     );
+    lastStatusUpdate = Date.now();
   } catch {
+    // Don't update lastStatusUpdate on failure to allow retry sooner
     ctx.ui.setStatus(STATUS_KEY, `⚡ NW: offline`);
   }
 }

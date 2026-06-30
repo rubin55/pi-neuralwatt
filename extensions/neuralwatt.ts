@@ -9,12 +9,10 @@ const STATUS_KEY = "neuralwatt";
 let lastStatusUpdate = 0;
 const STATUS_UPDATE_MIN_INTERVAL = 15000; // 15 seconds
 
-// Models where pi can safely send reasoning-specific API params
-// (reasoning_effort, developer role, max_completion_tokens).
-// Most vLLM-hosted models reject these — only add IDs you've verified.
-const REASONING_MODELS = new Set<string>([
-  // "zai-org/GLM-5.1-FP8",  // uncomment after testing with --thinking medium
-]);
+// Models where pi can send reasoning-specific API params
+// Populated dynamically from /v1/models `capabilities.reasoning` at session
+// start (see fetchAndRegister), and reassigned on each successful model fetch
+let REASONING_MODELS = new Set<string>();
 
 // Override max output tokens for models with small context windows
 const MAX_TOKENS_OVERRIDE: Record<string, number> = {
@@ -203,6 +201,13 @@ async function fetchAndRegister(pi: ExtensionAPI, ctx: ExtensionContext) {
   const body = await res.json();
   const entries: ModelEntry[] = body.data ?? [];
   if (entries.length === 0) throw new Error("/v1/models returned empty list");
+
+  // Derive reasoning-capable model IDs from the API's capability metadata
+  REASONING_MODELS = new Set(
+    entries
+      .filter((m) => m.metadata?.capabilities?.reasoning === true)
+      .map((m) => m.id),
+  );
 
   const models: ProviderModelConfig[] = entries.map((m) => ({
     id: m.id,

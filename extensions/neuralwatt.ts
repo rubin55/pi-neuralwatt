@@ -240,21 +240,17 @@ async function fetchAndRegister(pi: ExtensionAPI, ctx: ExtensionContext) {
 
   const models: ProviderModelConfig[] = entries.map((m) => {
     const reasoning = REASONING_MODELS.has(m.id);
-    // A reasoning model that doesn't accept reasoning_effort (capabilities.
-    // reasoning_effort === false) is represented the same way pi's built-in
-    // catalog does for e.g. zai glm-4.7/glm-5.1 or moonshotai kimi-k2.7-code:
-    // reasoning: true with compat.supportsReasoningEffort: false. Under the
-    // openai-completions API this is a per-field override, so getCompat()
-    // merges it as `model.compat.supportsReasoningEffort ?? detected`. So the 
-    // other auto-detected compat bits stay intact and no reasoning_effort param
-    // is sent over the wire.
-    const supportsEffort = m.metadata?.capabilities?.reasoning_effort !== false;
+    const caps = m.metadata?.capabilities;
+    const compat: ProviderModelConfig["compat"] = {
+      ...(reasoning && caps?.reasoning_effort === false ? { supportsReasoningEffort: false } : {}),
+      ...(caps?.developer_role !== true ? { supportsDeveloperRole: false } : {}),
+    };
     return {
       id: m.id,
       name: formatName(m.id, m.owned_by),
       reasoning,
       thinkingLevelMap: reasoning ? effortMapById.get(m.id) : undefined,
-      compat: reasoning && !supportsEffort ? { supportsReasoningEffort: false } : undefined,
+      compat: Object.keys(compat).length ? compat : undefined,
       input: ["text"] as const,
       contextWindow: m.max_model_len ?? 131072,
       maxTokens: MAX_TOKENS_OVERRIDE[m.id] ?? DEFAULT_MAX_TOKENS,

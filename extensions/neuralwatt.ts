@@ -58,6 +58,12 @@ export default function (pi: ExtensionAPI) {
     }
   });
 
+  // Await refreshStatus on model_select event
+  pi.on("model_select", async (_event, ctx) => {
+    lastStatusUpdate = 0;
+    await refreshStatus(ctx);
+  });
+
   // ─── Slash Commands ─────────────────────────────────────────────
 
   // /energy — Show energy usage breakdown
@@ -158,22 +164,30 @@ export default function (pi: ExtensionAPI) {
 // ─── Status Bar Helper ──────────────────────────────────────────────
 
 async function refreshStatus(ctx: ExtensionContext) {
+
+  // Show the neuralwatt banner only when a neuralwatt model is used
+  if (ctx.model?.provider !== "neuralwatt") {
+    ctx.ui.setStatus(STATUS_KEY, undefined);
+    return;
+  }
+
   const now = Date.now();
   if (now - lastStatusUpdate < STATUS_UPDATE_MIN_INTERVAL) {
     return;
   }
-  
+
+  const t = ctx.ui.theme;
   try {
     const apiKey = await ctx.modelRegistry.getApiKeyForProvider("neuralwatt");
     if (!apiKey) {
-      ctx.ui.setStatus(STATUS_KEY, `⚡ NW: no API key`);
+      ctx.ui.setStatus(STATUS_KEY, t.fg("muted", `⚡ NW: no API key`));
       return;
     }
     const res = await fetch(`${BASE_URL}/quota`, {
       headers: { Authorization: `Bearer ${apiKey}` },
     });
     if (!res.ok) {
-      ctx.ui.setStatus(STATUS_KEY, `⚡ NW: fetch error (${res.status})`);
+      ctx.ui.setStatus(STATUS_KEY, t.fg("muted", `⚡ NW: fetch error (${res.status})`));
       return;
     }
     const data: QuotaResponse = await res.json();
@@ -186,12 +200,12 @@ async function refreshStatus(ctx: ExtensionContext) {
 
     ctx.ui.setStatus(
       STATUS_KEY,
-      `⚡ NW: $${bal.toFixed(2)}/$${total.toFixed(2)} | ${reqs} reqs | ${energy} | $${cost.toFixed(4)} spent`
+      t.fg("muted", `⚡NW: $${bal.toFixed(2)}/$${total.toFixed(2)} | ${reqs} reqs | ${energy} | $${cost.toFixed(4)} spent`),
     );
     lastStatusUpdate = Date.now();
   } catch {
     // Don't update lastStatusUpdate on failure to allow retry sooner
-    ctx.ui.setStatus(STATUS_KEY, `⚡ NW: offline`);
+    ctx.ui.setStatus(STATUS_KEY, t.fg("muted", `⚡ NW: offline`));
   }
 }
 

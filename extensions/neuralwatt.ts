@@ -21,6 +21,9 @@ const MAX_TOKENS_OVERRIDE: Record<string, number> = {
 
 const DEFAULT_MAX_TOKENS = 32768;
 
+// Drived from ProviderModelConfig so it tracks pi's Model type
+type ThinkingLevelMap = NonNullable<ProviderModelConfig["thinkingLevelMap"]>;
+
 // ─── Extension Entry Point ──────────────────────────────────────────
 
 export default function (pi: ExtensionAPI) {
@@ -216,15 +219,24 @@ async function fetchAndRegister(pi: ExtensionAPI, ctx: ExtensionContext) {
       .map((m) => m.id),
   );
 
-  const models: ProviderModelConfig[] = entries.map((m) => ({
-    id: m.id,
-    name: formatName(m.id, m.owned_by),
-    reasoning: REASONING_MODELS.has(m.id),
-    input: ["text"] as const,
-    contextWindow: m.max_model_len ?? 131072,
-    maxTokens: MAX_TOKENS_OVERRIDE[m.id] ?? DEFAULT_MAX_TOKENS,
-    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-  }));
+  // Reuse pi's curated per-model effort-name mappings (e.g. GLM-5.2 maps
+  // xhigh to max) so neuralwatt models speak the same effort vocabulary pi
+  // already knows for that model id. Looked up from the built-in catalog
+  const effortMapById = buildEffortMapIndex(ctx);
+
+  const models: ProviderModelConfig[] = entries.map((m) => {
+    const reasoning = REASONING_MODELS.has(m.id);
+    return {
+      id: m.id,
+      name: formatName(m.id, m.owned_by),
+      reasoning,
+      thinkingLevelMap: reasoning ? effortMapById.get(m.id) : undefined,
+      input: ["text"] as const,
+      contextWindow: m.max_model_len ?? 131072,
+      maxTokens: MAX_TOKENS_OVERRIDE[m.id] ?? DEFAULT_MAX_TOKENS,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    };
+  });
 
   pi.registerProvider("neuralwatt", {
     baseUrl: BASE_URL,
@@ -273,6 +285,34 @@ function formatEnergy(kwh: number): string {
   if (kwh < 0.001) return `${(kwh * 1_000_000).toFixed(2)} µWh`;
   if (kwh < 1) return `${(kwh * 1_000).toFixed(2)} mWh`;
   return `${kwh.toFixed(4)} kWh`;
+}
+
+/**
+ * Build a {modelId → thinkingLevelMap} index from pi's built-in model catalog
+ * (ctx.modelRegistry), so neuralwatt models can reuse the curated effort-name
+ * mappings pi already defines for the same model id (GLM-5.2: xhigh to max).
+ *
+ * Only maps that actually rename an effort level are carried over, and maps
+ * that disable the "off" level (off: null) are skipped - neuralwatt reasoning
+ * models always allow turning reasoning off (e.g. via reasoning_effort=none),
+ * so an off:null marker (provider-specific plumbing where a gateway always
+ * reasons) must not be imposed on the neuralwatt proxy. Neuralwatt's own prior
+ * registrations are excluded to avoid self-reference.
+ */
+function buildEffortMapIndex(ctx: ExtensionContext): Map<string, ThinkingLevelMap> {
+  const index = new Map<string, ThinkingLevelMap>();
+  for (const m of ctx.modelRegistry.getAll()) {
+    if (m.provider === "neuralwatt") continue;
+    const map = m.thinkingLevelMap;
+    if (!map) continue;
+    if (map.off === null) continue;
+    const remaps = Object.entries(map).some(
+      ([level, value]) => typeof value === "string" && value !== level,
+    );
+    if (!remaps) continue;
+    if (!index.has(m.id)) index.set(m.id, map);
+  }
+  return index;
 }
 
 // ─── Types ──────────────────────────────────────────────────────────

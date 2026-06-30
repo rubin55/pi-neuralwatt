@@ -272,7 +272,7 @@ async function fetchAndRegister(pi: ExtensionAPI, ctx: ExtensionContext) {
 
   pi.registerProvider("neuralwatt", {
     baseUrl: BASE_URL,
-    apiKey: "NEURALWATT_API_KEY",
+    apiKey: "$NEURALWATT_API_KEY",
     api: "openai-completions",
     models,
   });
@@ -283,7 +283,7 @@ async function fetchAndRegister(pi: ExtensionAPI, ctx: ExtensionContext) {
 function registerFallback(pi: ExtensionAPI) {
   pi.registerProvider("neuralwatt", {
     baseUrl: BASE_URL,
-    apiKey: "NEURALWATT_API_KEY",
+    apiKey: "$NEURALWATT_API_KEY",
     api: "openai-completions",
     models: [
       { id: "kimi-k2.7-code", name: "Kimi K2.7 Code", reasoning: true, input: ["text"], contextWindow: 262128, maxTokens: 32768, cost: { input: 0.95, output: 4.0, cacheRead: 0.2375, cacheWrite: 0 }, compat: { supportsReasoningEffort: false, supportsDeveloperRole: false } },

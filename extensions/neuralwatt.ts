@@ -195,7 +195,14 @@ async function refreshStatus(ctx: ExtensionContext) {
 // ─── Model Registration ─────────────────────────────────────────────
 
 async function fetchAndRegister(pi: ExtensionAPI, ctx: ExtensionContext) {
-  const res = await fetch(`${BASE_URL}/models`);
+  // Query models with auth when an API key is available (e.g. after
+  // /login); otherwise fall back to the unauthenticated endpoint
+  const apiKey = await ctx.modelRegistry.getApiKeyForProvider("neuralwatt");
+  const headers: Record<string, string> = {};
+  if (apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+  const res = await fetch(`${BASE_URL}/models`, { headers });
   if (!res.ok) throw new Error(`/v1/models returned ${res.status}`);
 
   const body = await res.json();

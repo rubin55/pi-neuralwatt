@@ -238,9 +238,21 @@ async function fetchAndRegister(pi: ExtensionAPI, ctx: ExtensionContext) {
   // already knows for that model id. Looked up from the built-in catalog
   const effortMapById = buildEffortMapIndex(ctx);
 
+  // Convert /v1/models per-million USD pricing to pi's per-million cost
+  const perMillion = (v: unknown) => (typeof v === "number" && v > 0 ? v : 0);
+
   const models: ProviderModelConfig[] = entries.map((m) => {
     const reasoning = REASONING_MODELS.has(m.id);
     const caps = m.metadata?.capabilities;
+    const p = m.metadata?.pricing;
+    const cost: ProviderModelConfig["cost"] = p?.pricing_tbd
+      ? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
+      : {
+          input: perMillion(p?.input_per_million),
+          output: perMillion(p?.output_per_million),
+          cacheRead: perMillion(p?.cached_input_per_million),
+          cacheWrite: perMillion(p?.cached_output_per_million),
+        };
     const compat: ProviderModelConfig["compat"] = {
       ...(reasoning && caps?.reasoning_effort === false ? { supportsReasoningEffort: false } : {}),
       ...(caps?.developer_role !== true ? { supportsDeveloperRole: false } : {}),
@@ -254,7 +266,7 @@ async function fetchAndRegister(pi: ExtensionAPI, ctx: ExtensionContext) {
       input: ["text"] as const,
       contextWindow: m.max_model_len ?? 131072,
       maxTokens: MAX_TOKENS_OVERRIDE[m.id] ?? DEFAULT_MAX_TOKENS,
-      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      cost,
     };
   });
 

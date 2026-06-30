@@ -180,14 +180,14 @@ async function refreshStatus(ctx: ExtensionContext) {
   try {
     const apiKey = await ctx.modelRegistry.getApiKeyForProvider("neuralwatt");
     if (!apiKey) {
-      ctx.ui.setStatus(STATUS_KEY, t.fg("muted", `⚡ NW: no API key`));
+      ctx.ui.setStatus(STATUS_KEY, t.fg("muted", `⚡no API key configured for neuralwatt`));
       return;
     }
     const res = await fetch(`${BASE_URL}/quota`, {
       headers: { Authorization: `Bearer ${apiKey}` },
     });
     if (!res.ok) {
-      ctx.ui.setStatus(STATUS_KEY, t.fg("muted", `⚡ NW: fetch error (${res.status})`));
+      ctx.ui.setStatus(STATUS_KEY, t.fg("muted", `⚡neuralwatt fetch error (${res.status})`));
       return;
     }
     const data: QuotaResponse = await res.json();
@@ -200,12 +200,12 @@ async function refreshStatus(ctx: ExtensionContext) {
 
     ctx.ui.setStatus(
       STATUS_KEY,
-      t.fg("muted", `⚡NW: $${bal.toFixed(2)}/$${total.toFixed(2)} | ${reqs} reqs | ${energy} | $${cost.toFixed(4)} spent`),
+      t.fg("muted", `⚡$${bal.toFixed(2)}/$${total.toFixed(2)} left · ${reqs} requests · ${energy} used · $${cost.toFixed(4)} spent`),
     );
     lastStatusUpdate = Date.now();
   } catch {
     // Don't update lastStatusUpdate on failure to allow retry sooner
-    ctx.ui.setStatus(STATUS_KEY, t.fg("muted", `⚡ NW: offline`));
+    ctx.ui.setStatus(STATUS_KEY, t.fg("muted", `⚡neuralwatt offline`));
   }
 }
 

@@ -1,4 +1,4 @@
-import type { ExtensionAPI, ExtensionContext, ProviderModelConfig } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext, ProviderModelConfig } from "@earendil-works/pi-coding-agent";
 
 // ─── Configuration ──────────────────────────────────────────────────
 const BASE_URL = "https://api.neuralwatt.com/v1";

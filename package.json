@@ -11,7 +11,7 @@
     "url": "git+https://github.com/tedewaard/pi-neuralwatt.git"
   },
   "peerDependencies": {
-    "@mariozechner/pi-coding-agent": "*"
+    "@earendil-works/pi-coding-agent": "*"
   },
   "pi": {
     "extensions": [

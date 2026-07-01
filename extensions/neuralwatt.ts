@@ -1,25 +1,22 @@
 import type { ExtensionAPI, ExtensionContext, ProviderModelConfig } from "@earendil-works/pi-coding-agent";
 
 // ─── Configuration ──────────────────────────────────────────────────
+
 const BASE_URL = "https://api.neuralwatt.com/v1";
-const ENERGY_RATE_PER_KWH = 5.0; // USD
 const STATUS_KEY = "neuralwatt";
 
-// Rate limiting for status refreshes
-let lastStatusUpdate = 0;
-const STATUS_UPDATE_MIN_INTERVAL = 15000; // 15 seconds
+// Source: https://portal.neuralwatt.com/energy-pricing
+const ENERGY_RATE_PER_KWH = 5.0;
 
-// Models where pi can send reasoning-specific API params
-// Populated dynamically from /v1/models `capabilities.reasoning` at session
-// start (see fetchAndRegister), and reassigned on each successful model fetch
+// Rate limiting for status refreshes
+const STATUS_UPDATE_MIN_INTERVAL = 15000; // 15 seconds
+let lastStatusUpdate = 0;
+
+// Initially empty set of models that support reasoning
 let REASONING_MODELS = new Set<string>();
 
-// Override max output tokens for models with small context windows
-const MAX_TOKENS_OVERRIDE: Record<string, number> = {
-  "openai/gpt-oss-20b": 8192,
-};
-
-const DEFAULT_MAX_TOKENS = 32768;
+// Default max output tokens if not given by /v1/models
+const MAX_OUTPUT_TOKENS = 32768;
 
 // Drived from ProviderModelConfig so it tracks pi's Model type
 type ThinkingLevelMap = NonNullable<ProviderModelConfig["thinkingLevelMap"]>;
@@ -31,7 +28,7 @@ export default function (pi: ExtensionAPI) {
   registerFallback(pi);
 
   pi.on("session_start", async (event, ctx) => {
-    // Skip live registration except on startup and reload.
+    // Skip live registration except on startup and reload
     if (event.reason !== 'startup' && event.reason !== 'reload') {
       return;
     }
@@ -265,7 +262,7 @@ async function fetchAndRegister(pi: ExtensionAPI, ctx: ExtensionContext) {
       compat: Object.keys(compat).length ? compat : undefined,
       input: ["text"] as const,
       contextWindow: m.max_model_len ?? 131072,
-      maxTokens: MAX_TOKENS_OVERRIDE[m.id] ?? DEFAULT_MAX_TOKENS,
+      maxTokens: m.metadata?.limits?.max_output_tokens ?? MAX_OUTPUT_TOKENS,
       cost,
     };
   });

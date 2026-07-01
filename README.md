@@ -1,11 +1,13 @@
-> **Disclaimer:** This plugin has been generated using AI
+> **Disclaimer:** This plugin has been developed in co-operation with AI
 
 # Pi Neuralwatt Extension
 
-This extension adds Neuralwatt support to the PI coding agent.
+This extension adds Neuralwatt support to the pi coding agent.
 
 ## Installation
+
 Install with one of the following:
+
 ```bash
 pi install npm:pi-neuralwatt
 pi install git:github.com/tedewaard/pi-neuralwatt
@@ -16,49 +18,49 @@ pi install https://github.com/tedewaard/pi-neuralwatt
 
 ### API Key Setup
 
-You can set your Neuralwatt API key in one of two ways:
+You can provide your Neuralwatt API key in either of two ways:
 
 **Option 1: Environment Variable (Recommended)**
 
-Set the following variable in your shell or shell configuration before launching PI:
+Set the following variable in your shell or shell configuration before launching pi:
 
-```sh
+```bash
 export NEURALWATT_API_KEY=<your_neuralwatt_api_key>
 ```
 
-**Option 2: Interactive Setup**
+**Option 2: Stored Credentials**
 
-If you don't set the environment variable, PI will guide you through configuring the API key interactively when you need to use Neuralwatt features.
+Run `/login` in interactive mode and select the `neuralwatt` provider to store the key in `auth.json` for future sessions.
 
-**No API Key?**
+**Without an API key**
 
-If no API key is configured, the extension will log a non-critical warning and fall back to a preset list of models, but interactive features like `/energy` and `/quota` will show an error when accessed without a key.
+The preset models are still registered with pi, but every live API call the extension makes will report that no key is configured. Additionally, `/neuralwatt:quota` and `/neuralwatt:energy` surface an error, and the status-bar widget (when enabled) displays `⚡no API key configured for neuralwatt`.
 
 ## Feature Highlights
 
-* **Model Registration** – On startup/reload, the extension queries `https://api.neuralwatt.com/v1/models` unauthenticated and registers all returned models as a provider named `neuralwatt`. A preset fallback model list is always available at load time. If the live fetch fails, it gracefully continues with the fallbacks.
-* **Status‑bar widget** – Displays current quota usage, remaining balance, monthly usage and cost. Updated on session start and after each LLM turn.
+* **Model Registration** – Registers a provider named `neuralwatt` from a static, auto-generated catalog (`extensions/neuralwatt.models.ts`). That catalog is produced offline by `scripts/generate-models.ts`, which snapshots `https://api.neuralwatt.com/v1/models` (capabilities, context window, pricing) and sources each model's `thinkingLevelMap` from pi's built-in catalogs. Regenerate with `bun run generate-models` (or `npm run generate-models`). No call to `/v1/models` is made at runtime.
+* **Status-bar widget** – When enabled, shows remaining credit balance plus current-month usage (requests and energy) and spend. Refreshes on session start, after each LLM turn, and on model switch (throttled to once per 60s), and only while a Neuralwatt model is the active model. Disabled by default; enable it with `/neuralwatt:toggle`.
 * **Slash Commands**
-  * `/energy` – Shows a detailed energy‑consumption report for the current period, including requests, energy in kWh/µWh, and estimated cost.
-  * `/quota` – Shows your account balance, running totals for the current month and lifetime, rate‑limit tier, and snapshot timestamp.
-* **Reasoning‑aware models** – The extension marks certain models as *reasoning* capable. In configuration you can specify which models; these fields are used internally when crafting requests.
-* **Token & cost overrides** – For small‑context models you can override the `maxTokens` value for better interaction (see `MAX_TOKENS_OVERRIDE`).
+  * `/neuralwatt:energy` – Shows an energy-consumption report for the current period: request count, energy scaled to the most readable unit (µWh/mWh/kWh) plus joules, estimated cost, and a recent 7-day daily breakdown.
+  * `/neuralwatt:quota` – Shows your key name, accounting method, account balance (remaining/total and % used), current-month and lifetime usage totals, rate-limit tier, and snapshot timestamp.
+  * `/neuralwatt:toggle` – Enable or disable the status-bar widget (disabled by default).
+* **Reasoning-aware models** – Reasoning capability and `thinkingLevelMap` are baked into the generated catalog at generation time (derived from the API's reported capabilities and pi's curated catalogs), so reasoning models are wired up correctly without any runtime configuration. pi uses these fields when crafting requests.
 
 ### Usage Example
 
-```sh
-# start PI normally – the extension is auto‑loaded
+```bash
+# start pi normally – the extension is auto-loaded
 pi
 ```
 
-Once PI starts, you can run:
+Once pi starts, you can run `/models` to select a `neuralwatt` model. Then you can run one of the following commands:
 
 ```
-/energy
-/quota
+/neuralwatt:energy
+/neuralwatt:quota
+/neuralwatt:toggle
 ```
 
-Live status information will appear in the status bar (bottom of the terminal).
+The status-bar widget is disabled by default. Run `/neuralwatt:toggle` to enable it — live quota information then appears in the status bar (bottom of the terminal). Run it again to hide it.
 
 ---
-

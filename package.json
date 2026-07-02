@@ -13,9 +13,6 @@
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"
   },
-  "scripts": {
-    "generate-models": "bun run scripts/generate-models.ts"
-  },
   "pi": {
     "extensions": [
       "./extensions/neuralwatt.ts"

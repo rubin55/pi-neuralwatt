@@ -8,7 +8,7 @@ import { dirname, join } from "node:path";
 const BASE_URL = "https://api.neuralwatt.com/v1";
 const STATUS_KEY = "neuralwatt";
 
-// Persisted status-bar setting + cached model catalog, so warm starts skip the network.
+// Settings file, stores models, settings.
 const STATE_PATH = join(getAgentDir(), "pi-neuralwatt.json");
 
 // USD per kWh (source: https://portal.neuralwatt.com/energy-pricing).
@@ -17,28 +17,30 @@ const ENERGY_RATE_PER_KWH = 5.0;
 // Cap status-bar refreshes at one per 60s to spare the API.
 const STATUS_UPDATE_MIN_INTERVAL = 60_000;
 
-// How many recent days the /energy daily breakdown shows.
+// How many recent days the /neuralwatt:energy daily breakdown shows.
 const RECENT_DAYS = 7;
 
 // Default cache lifetime when the API sends no Cache-Control hint.
 const DEFAULT_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h.
 
-// Fallbacks when /v1/models omits the field.
+// Fallbacks when /v1/models omits these fields.
 const DEFAULT_CONTEXT_WINDOW = 131072; // 128k.
 const DEFAULT_MAX_OUTPUT_TOKENS = 32768;
 
-// Per-model effort map: level (off|minimal|low|medium|high|xhigh) → provider value, or null to disable.
+// Per-model effort map: level (off|minimal|low|medium|high|xhigh)
+// to provider value, or null to disable.
 type ThinkingLevelMap = NonNullable<ProviderModelConfig["thinkingLevelMap"]>;
 
-// 0 makes the next refreshStatus bypass the throttle; reset on toggle/model switch.
+// Initialize lastStatusUpdate.
 let lastStatusUpdate = 0;
 
+// Initialize an empty state.
 const EMPTY_STATE: State = { statusBarEnabled: false, modelsFetchedAt: null, modelsExpireAt: null, models: null };
 
 // In-memory mirror of STATE_PATH; readState() replaces it at startup.
 let state: State = { ...EMPTY_STATE };
 
-// Dedupes concurrent refresh attempts (e.g. /neuralwatt:refresh during startup).
+// Dedupes concurrent refresh attempts (e.g. /neuralwatt:refresh.
 let refreshInFlight: Promise<ProviderModelConfig[]> | null = null;
 
 // ─── Entry Point ────────────────────────────────────────────────────
@@ -65,12 +67,13 @@ export default async function (pi: ExtensionAPI) {
     await refreshStatus(ctx);
   });
 
-  // Model switch: bypass the throttle so the new model's stats show at once.
+  // Model switch.
   pi.on("model_select", async (_event, ctx) => {
     lastStatusUpdate = 0;
     await refreshStatus(ctx);
   });
 
+  // Command /neuralwatt:refresh.
   pi.registerCommand("neuralwatt:refresh", {
     description: "Refresh the Neuralwatt model catalog from /v1/models",
     handler: async (_args, ctx) => {
@@ -93,6 +96,7 @@ export default async function (pi: ExtensionAPI) {
     },
   });
 
+  // Command /neuralwatt:energy.
   pi.registerCommand("neuralwatt:energy", {
     description: "Show Neuralwatt energy consumption stats",
     handler: async (_args, ctx) => {
@@ -122,6 +126,7 @@ export default async function (pi: ExtensionAPI) {
     },
   });
 
+  // Command /neuralwatt:quota.
   pi.registerCommand("neuralwatt:quota", {
     description: "Show Neuralwatt account balance and quota",
     handler: async (_args, ctx) => {
@@ -165,6 +170,7 @@ export default async function (pi: ExtensionAPI) {
     },
   });
 
+  // Command /neuralwatt:toggle.
   pi.registerCommand("neuralwatt:toggle", {
     description: "Toggle the Neuralwatt status bar on or off",
     handler: async (_args, ctx) => {

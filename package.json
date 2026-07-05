@@ -1,9 +1,10 @@
 {
   "name": "pi-neuralwatt",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "Neuralwatt provider for pi — energy usage tracking and account quota in your status bar",
   "keywords": [
-    "pi-package"
+    "pi-package",
+    "neuralwatt"
   ],
   "license": "MIT",
   "repository": {
